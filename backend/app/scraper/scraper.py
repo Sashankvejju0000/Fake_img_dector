@@ -2,6 +2,7 @@
 import os
 import re
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -13,9 +14,12 @@ from playwright.async_api import Error as PlaywrightError, async_playwright
 from PIL import Image
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+UPLOAD_FOLDER = os.environ.get("IMAGE_UPLOAD_FOLDER") or os.path.join(tempfile.gettempdir(), "fake_img_detector_uploads")
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except OSError:
+    UPLOAD_FOLDER = tempfile.gettempdir()
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 SKIP_PATTERNS = ["favicon", "icon", "tracking", "pixel"]
