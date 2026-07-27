@@ -14,8 +14,6 @@ venv/**
 *.env
 
 # Ignore local data and artifacts
-ml
-ml/**
 dataset_small
 dataset_small/**
 backend/app/uploads

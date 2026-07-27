@@ -16,7 +16,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(BASE_DIR)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-LABELS = ["FAKE", "REAL"]
+LABELS = ["AI", "REAL"]
 _model = None
 
 
@@ -29,30 +29,30 @@ def _load_ml_config():
 from ml.utils import load_image, load_model
 
 
-def build_model():
+def build_model(num_classes: int):
     model = models.efficientnet_b0(weights=None)
     in_features = model.classifier[1].in_features
-    model.classifier[1] = nn.Linear(in_features, NUM_CLASSES)
+    model.classifier[1] = nn.Linear(in_features, num_classes)
     return model
 
 
 def get_model():
     global _model
+    device, model_path, image_size, num_classes = _load_ml_config()
 
     if _model is None:
-        DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES = _load_ml_config()
-        if not os.path.isfile(MODEL_PATH):
-            raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+        if not os.path.isfile(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        model = build_model()
-        _model = load_model(model, MODEL_PATH, DEVICE)
+        model = build_model(num_classes)
+        _model = load_model(model, model_path, device)
 
-    return _model
+    return _model, device, image_size
 
 
 def predict_image(image_path: str) -> dict:
-    model = get_model()
-    image = load_image(image_path, IMAGE_SIZE).to(DEVICE)
+    model, device, image_size = get_model()
+    image = load_image(image_path, image_size).to(device)
 
     with torch.no_grad():
         outputs = model(image)
@@ -68,17 +68,21 @@ def predict_image(image_path: str) -> dict:
 
 def predict_images(image_paths: list[str]) -> list[dict] | None:
     if torch is None:
-        return [{"prediction": "UNKNOWN", "confidence": 0.0} for _ in image_paths]
+        raise RuntimeError("Torch is not installed in the runtime.")
 
     DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES = _load_ml_config()
     if not os.path.isfile(MODEL_PATH):
-        return None
+        raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+
+    # Load once before iterating so model-initialization failures are not
+    # silently converted into one empty result for every image.
+    get_model()
 
     results = []
     for image_path in image_paths:
         try:
             results.append(predict_image(image_path))
         except Exception:
-            results.append({"prediction": None, "confidence": None})
+            results.append({"prediction": "UNKNOWN", "confidence": None})
 
     return results

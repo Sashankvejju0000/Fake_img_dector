@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Error as PlaywrightError, async_playwright
 from PIL import Image
+
+from app.utils.helper import is_public_url
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.environ.get("IMAGE_UPLOAD_FOLDER") or os.path.join(tempfile.gettempdir(), "fake_img_detector_uploads")
@@ -25,6 +28,8 @@ SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 SKIP_PATTERNS = ["favicon", "icon", "tracking", "pixel"]
 MIN_IMAGE_WIDTH = 100
 MIN_IMAGE_HEIGHT = 100
+MAX_IMAGES = int(os.environ.get("MAX_IMAGES_PER_ANALYSIS", "25"))
+MAX_IMAGE_BYTES = int(os.environ.get("MAX_IMAGE_BYTES", str(10 * 1024 * 1024)))
 
 HEADERS = {
     "User-Agent": (
@@ -190,11 +195,15 @@ def extract_image_urls(url: str, html: str) -> list[str]:
     return list(filtered_urls)
 
 
-def download_image(session: requests.Session, image_url: str, index: int) -> dict[str, Any] | None:
+def download_image(image_url: str, index: int, request_id: str) -> dict[str, Any] | None:
+    if not is_public_url(image_url):
+        print(f"Skipping non-public image URL: {image_url}")
+        return None
+
     max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         try:
-            response = session.get(image_url, headers=HEADERS, timeout=15, stream=True, allow_redirects=True)
+            response = requests.get(image_url, headers=HEADERS, timeout=15, stream=True, allow_redirects=False)
             if response.status_code != 200:
                 print(f"Download failed ({attempt}) {image_url}: {response.status_code}")
                 continue
@@ -202,14 +211,25 @@ def download_image(session: requests.Session, image_url: str, index: int) -> dic
             if "image" not in content_type and not is_supported_format(image_url):
                 print(f"Skipping non-image content: {image_url}")
                 return None
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > MAX_IMAGE_BYTES:
+                print(f"Skipping oversized image: {image_url}")
+                return None
             extension = Path(urlparse(image_url).path).suffix.lower()
             if extension not in SUPPORTED_EXTENSIONS:
                 extension = ".jpg"
-            filename = f"image_{index}{extension}"
+            filename = f"{request_id}_{index}{extension}"
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             with open(filepath, "wb") as file:
+                downloaded_bytes = 0
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
+                        downloaded_bytes += len(chunk)
+                        if downloaded_bytes > MAX_IMAGE_BYTES:
+                            file.close()
+                            os.remove(filepath)
+                            print(f"Skipping oversized image: {image_url}")
+                            return None
                         file.write(chunk)
             width = height = None
             try:
@@ -220,7 +240,11 @@ def download_image(session: requests.Session, image_url: str, index: int) -> dic
                     os.remove(filepath)
                     return None
             except Exception:
-                pass
+                # A response claiming to be an image may still contain HTML,
+                # SVG, or an error payload. Do not send unreadable files to
+                # the classifier or return them as pending results.
+                os.remove(filepath)
+                return None
             return {
                 "filename": filename,
                 "image_url": image_url,
@@ -272,16 +296,19 @@ def scrape_images(url: str) -> list[dict[str, Any]]:
     print(f"Unique supported images after filtering: {len(unique_urls)}")
 
     results: list[dict[str, Any]] = []
-    with requests.Session() as session:
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(download_image, session, url, idx + 1) for idx, url in enumerate(unique_urls)]
-            for future in futures:
-                result = future.result()
-                if result:
-                    results.append(result)
-                    print("Downloaded:", result["filename"])
-                else:
-                    print("Skipped or failed download")
+    request_id = uuid.uuid4().hex
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(download_image, image_url, idx + 1, request_id)
+            for idx, image_url in enumerate(unique_urls[:MAX_IMAGES])
+        ]
+        for future in futures:
+            result = future.result()
+            if result:
+                results.append(result)
+                print("Downloaded:", result["filename"])
+            else:
+                print("Skipped or failed download")
 
     print("=" * 50)
     print("Downloaded Images:", len(results))

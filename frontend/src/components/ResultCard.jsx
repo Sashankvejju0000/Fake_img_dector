@@ -8,7 +8,7 @@ export default function ResultCard({ filename, prediction, confidence, imageUrl 
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-slate-800 px-3 py-1 text-xs uppercase tracking-[0.16em] text-slate-300">
-            {prediction ?? 'PENDING'}
+            {prediction ?? 'UNAVAILABLE'}
           </span>
           {confidence != null && (
             <span className="text-sm text-slate-400">{confidence.toFixed(2)}%</span>

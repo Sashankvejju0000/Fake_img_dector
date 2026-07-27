@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  // On Vercel the Python function is exposed through the /api rewrite in
+  // vercel.json. Local development continues to use the FastAPI server.
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:8000'),
   headers: {
     'Content-Type': 'application/json'
   }

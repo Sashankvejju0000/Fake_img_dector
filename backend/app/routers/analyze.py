@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+import os
+
+from fastapi import APIRouter, HTTPException
 from app.schemas.schema import WebsiteRequest
-from app.utils.helper import is_valid_url
+from app.utils.helper import is_public_url
 from app.services.image_service import check_website
 from app.scraper.scraper import scrape_images
 
@@ -15,10 +17,10 @@ def analyze(request: WebsiteRequest):
     url = request.url
 
     # Validate URL
-    if not is_valid_url(url):
+    if not is_public_url(url):
         return {
             "status": "error",
-            "message": "Invalid URL format."
+            "message": "Enter a publicly reachable HTTP(S) URL."
         }
 
     # Check website
@@ -36,27 +38,29 @@ def analyze(request: WebsiteRequest):
 
     image_paths = [image["saved_path"] for image in images]
 
-    try:
-        from app.services.prediction_service import predict_images
-        predictions = predict_images(image_paths)
-    except Exception as exc:
-        predictions = None
-        prediction_error = str(exc)
+    predictions = []
+    if image_paths:
+        try:
+            from app.services.prediction_service import predict_images
+            predictions = predict_images(image_paths)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Prediction service is unavailable.") from exc
+        finally:
+            for image_path in image_paths:
+                try:
+                    os.remove(image_path)
+                except OSError:
+                    pass
 
-    if predictions is not None:
+    if predictions:
         for image, prediction in zip(images, predictions):
             image["prediction"] = prediction.get("prediction")
             image["confidence"] = prediction.get("confidence")
-    else:
-        for image in images:
-            image["prediction"] = None
-            image["confidence"] = None
-        if images and 'prediction_error' in locals():
-            return {
-                "status": "error",
-                "message": "Prediction service unavailable.",
-                "details": prediction_error
-            }
+
+    # The temporary path is an implementation detail and must not be exposed
+    # to API clients.
+    for image in images:
+        image.pop("saved_path", None)
 
     return {
         "status": "success",

@@ -24,5 +24,7 @@ Thumbs.db
 # Local data and artifacts
 ml/dataset/
 ml/models/
+!ml/models/
+!ml/models/efficientnet_b0.pth
 dataset_small/
 backend/app/uploads/

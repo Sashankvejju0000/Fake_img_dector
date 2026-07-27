@@ -1,10 +1,15 @@
 import requests
 
+from app.utils.helper import is_public_url
+
 
 def check_website(url: str):
     """
     Check if the website is reachable.
     """
+
+    if not is_public_url(url):
+        return False, None
 
     headers = {
         "User-Agent": (
@@ -15,7 +20,7 @@ def check_website(url: str):
     }
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=10, allow_redirects=False)
 
         if response.status_code == 200:
             return True, response.status_code
