@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.pyd
 venv/
+.venv/
 .env
 .env.*
 *.env
@@ -17,3 +18,11 @@ Thumbs.db
 
 # OneDrive
 ~$*
+
+.vercel
+
+# Local data and artifacts
+ml/dataset/
+ml/models/
+dataset_small/
+backend/app/uploads/
