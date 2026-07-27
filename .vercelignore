@@ -1,6 +1,8 @@
 # Ignore local Python environments and build artifacts
-.venv/
-venv/
+.venv
+.venv/**
+venv
+venv/**
 **/__pycache__/
 *.py[cod]
 *.pyo
@@ -12,12 +14,19 @@ venv/
 *.env
 
 # Ignore local data and artifacts
-ml/
-dataset_small/
-backend/app/uploads/
-frontend/node_modules/
-frontend/dist/
+ml
+ml/**
+dataset_small
+dataset_small/**
+backend/app/uploads
+backend/app/uploads/**
+frontend/node_modules
+frontend/node_modules/**
+frontend/dist
+frontend/dist/**
 
 # Ignore Vercel metadata and local git
-.vercel/
-.git/
+.vercel
+.vercel/**
+.git
+.git/**
