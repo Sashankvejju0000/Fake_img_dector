@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from app.schemas.schema import WebsiteRequest
 from app.utils.helper import is_valid_url
 from app.services.image_service import check_website
-from app.services.prediction_service import predict_images
 from app.scraper.scraper import scrape_images
 
 router = APIRouter(
@@ -36,7 +35,13 @@ def analyze(request: WebsiteRequest):
     images = scrape_images(url)
 
     image_paths = [image["saved_path"] for image in images]
-    predictions = predict_images(image_paths)
+
+    try:
+        from app.services.prediction_service import predict_images
+        predictions = predict_images(image_paths)
+    except Exception as exc:
+        predictions = None
+        prediction_error = str(exc)
 
     if predictions is not None:
         for image, prediction in zip(images, predictions):
@@ -46,6 +51,12 @@ def analyze(request: WebsiteRequest):
         for image in images:
             image["prediction"] = None
             image["confidence"] = None
+        if images and 'prediction_error' in locals():
+            return {
+                "status": "error",
+                "message": "Prediction service unavailable.",
+                "details": prediction_error
+            }
 
     return {
         "status": "success",

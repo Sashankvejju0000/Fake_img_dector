@@ -1,9 +1,14 @@
 import os
 import sys
 
-import torch
-import torch.nn as nn
-from torchvision import models
+try:
+    import torch
+    import torch.nn as nn
+    from torchvision import models
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    models = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(BASE_DIR)))
@@ -11,11 +16,17 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(BASE_DIR)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from ml.config import DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES
-from ml.utils import load_image, load_model
-
 LABELS = ["FAKE", "REAL"]
 _model = None
+
+
+def _load_ml_config():
+    if torch is None:
+        raise RuntimeError("Torch is not installed in the runtime.")
+    from ml.config import DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES
+    return DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES
+
+from ml.utils import load_image, load_model
 
 
 def build_model():
@@ -29,6 +40,7 @@ def get_model():
     global _model
 
     if _model is None:
+        DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES = _load_ml_config()
         if not os.path.isfile(MODEL_PATH):
             raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
 
@@ -55,6 +67,10 @@ def predict_image(image_path: str) -> dict:
 
 
 def predict_images(image_paths: list[str]) -> list[dict] | None:
+    if torch is None:
+        return [{"prediction": "UNKNOWN", "confidence": 0.0} for _ in image_paths]
+
+    DEVICE, MODEL_PATH, IMAGE_SIZE, NUM_CLASSES = _load_ml_config()
     if not os.path.isfile(MODEL_PATH):
         return None
 
