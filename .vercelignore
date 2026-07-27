@@ -1,0 +1,23 @@
+# Ignore local Python environments and build artifacts
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ignore local env files
+.env
+.env.*
+*.env
+
+# Ignore local data and artifacts
+ml/
+dataset_small/
+backend/app/uploads/
+frontend/node_modules/
+frontend/dist/
+
+# Ignore Vercel metadata and local git
+.vercel/
+.git/
