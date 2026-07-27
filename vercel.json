@@ -1,4 +1,5 @@
 {
+  "version": 3,
   "services": {
     "frontend": {
       "root": "frontend",
@@ -9,20 +10,16 @@
       "entrypoint": "app/main.py"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": {
-        "type": "service",
-        "service": "backend"
-      }
+      "src": "/api/(.*)",
+      "dest": "/api/$1",
+      "service": "backend"
     },
     {
-      "source": "/:path*",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
+      "src": "/(.*)",
+      "dest": "/$1",
+      "service": "frontend"
     }
   ]
 }
