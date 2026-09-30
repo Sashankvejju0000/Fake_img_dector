@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import os
 import re
 import sys
@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from playwright.async_api import Error as PlaywrightError, async_playwright
 from PIL import Image
 
-from app.utils.helper import is_public_url
+from app.utils.helper import is_public_url, safe_get
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.environ.get("IMAGE_UPLOAD_FOLDER") or os.path.join(tempfile.gettempdir(), "fake_img_detector_uploads")
@@ -203,7 +203,7 @@ def download_image(image_url: str, index: int, request_id: str) -> dict[str, Any
     max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         try:
-            response = requests.get(image_url, headers=HEADERS, timeout=15, stream=True, allow_redirects=False)
+            response = safe_get(image_url, headers=HEADERS, timeout=15, stream=True)
             if response.status_code != 200:
                 print(f"Download failed ({attempt}) {image_url}: {response.status_code}")
                 continue
@@ -275,7 +275,7 @@ def scrape_images(url: str) -> list[dict[str, Any]]:
 
     if not html:
         try:
-            response = requests.get(url, headers=HEADERS, timeout=20, allow_redirects=True)
+            response = safe_get(url, headers=HEADERS, timeout=20)
             response.raise_for_status()
             html = response.text
             print("Fallback to plain request HTML")

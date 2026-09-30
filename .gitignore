@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -28,3 +28,6 @@ ml/models/
 !ml/models/efficientnet_b0.pth
 dataset_small/
 backend/app/uploads/
+backend/uploads/
+frontend/dist/
+node_modules/
